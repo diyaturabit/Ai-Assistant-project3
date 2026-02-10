@@ -1,68 +1,3 @@
-# from fastapi import FastAPI
-# from dotenv import load_dotenv
-
-# from schemas.chat import ChatRequest
-# from agents.agents import agent_executor
-# from memory.redis_memory import save_message,get_history
-
-# load_dotenv()
-
-# app = FastAPI(title="AI CRM Assistant")
-
-# @app.post("/chat")
-# async def chat(req: ChatRequest):
-#     # get previous chat history
-#     chat_history = get_history(req.user_id)
-
-#     # call LangChain agent
-#     result = agent_executor.invoke({
-#         "input": req.message,
-#         "chat_history": chat_history
-#     })
-
-#     # save conversation
-#     save_message(req.user_id, req.message)
-#     save_message(req.user_id, result["output"],role="ai")
-
-#     return {
-#         "reply": result["output"]
-#     }
-
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="192.168.1.70", port=5001, reload=True)
-
-
-# from fastapi import FastAPI
-# from dotenv import load_dotenv
-# import app.schemas.chat
-# from app.schemas.chat import ChatRequest
-# from app.agents.agents import agent   
-# load_dotenv()
-# import os
-# app = FastAPI(title="AI CRM Assistant")
-# print(os.getenv("GEMINI_API_KEY"))
-
-# @app.post("/chat")
-# async def chat(req: ChatRequest):
-#     result = agent.invoke(
-#         {
-#             "messages": [
-#                 {"role": "user", "content": req.message}
-#             ]
-#         }
-#     )
-#     print(f"Result",result)
-#     return {
-#         "reply": result
-#     }
-
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="192.168.1.70", port=5001)
-
 
 from fastapi import FastAPI
 
@@ -77,26 +12,70 @@ load_dotenv()
 app = FastAPI(title="AI CRM Assistant")
 
 
-def parse_agent_result(result):
-    """Extract readable AI message or format tickets table."""
-    if hasattr(result, "messages"):
-        for msg in result.messages:
-            if isinstance(msg, AIMessage):
-                return msg.content
-            if isinstance(msg, ToolMessage):
-                try:
-                    data = json.loads(msg.content)
-                    if "tickets" in data:
-                        # Format tickets in table
-                        table = "ID | Customer | Priority | Status | Title\n"
-                        table += "---|----------|---------|--------|------\n"
-                        for t in data["tickets"]:
-                            table += f"{t['id']} | {t['customer_name']} | {t['priority']} | {t['status']} | {t['title']}\n"
-                        return table
-                    return str(data)
-                except:
-                    return str(msg.content)
-    return str(result)
+from langchain_core.messages import AIMessage
+from fastapi.concurrency import run_in_threadpool
+
+
+from langchain_core.messages import AIMessage, ToolMessage
+import json
+
+def parse_agent_result(result: dict):
+    """
+    Extract final AI response from LangChain agent result (DICT-based).
+    """
+
+    if not result or "messages" not in result:
+        return "❌ No response generated."
+
+    final_ai_message = None
+    last_tool_message = None
+
+    # Walk messages in order
+    for msg in result["messages"]:
+        if isinstance(msg, ToolMessage):
+            last_tool_message = msg.content
+
+        if isinstance(msg, AIMessage) and msg.content.strip():
+            final_ai_message = msg.content
+
+    # ✅ Priority 1: Final AI response
+    if final_ai_message:
+        return final_ai_message
+
+    # ✅ Priority 2: Tool fallback (JSON / table)
+    if last_tool_message:
+        try:
+            data = json.loads(last_tool_message)
+            if "tickets" in data:
+                rows = ["ID | Title | Priority | Status | Customer"]
+                rows.append("-" * 50)
+                for t in data["tickets"]:
+                    rows.append(
+                        f"{t['id']} | {t['title']} | "
+                        f"{t['priority']} | {t['status']} | "
+                        f"{t['customer_name']}"
+                    )
+                return "\n".join(rows)
+            return json.dumps(data, indent=2)
+        except Exception:
+            return str(last_tool_message)
+
+    return "❌ No response generated."
+
+
+
+
+# @app.post("/chat")
+# async def chat(req: ChatRequest):
+#     result = await run_in_threadpool(
+#         lambda: agent.invoke(
+#             {"messages": [{"role": "user", "content": req.message}]}
+#         )
+#     )
+#     print(f"Result:",result)
+#     reply = parse_agent_result(result)
+#     print(f"Reply:",reply)
+#     return {"reply": reply}
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
@@ -106,14 +85,3 @@ async def chat(req: ChatRequest):
 
     reply = parse_agent_result(result)
     return {"reply": reply}
-
-
-# @app.post("/chat")
-# async def chat(req: ChatRequest):
-#     # Run synchronous agent in a threadpool to avoid blocking
-#     result = await run_in_threadpool(
-#         lambda: agent.invoke({"messages": [{"role": "user", "content": req.message}]})
-#     )
-#     reply = parse_agent_result(result)
-#     return {"reply": reply}
-

@@ -1,22 +1,4 @@
-# from tools.tickets import fetch_tickets
-# from gemini_llm import get_gemini_llm
-# from agents.prompts import system_prompt
-# from langchain.agents import create_tool_calling_agent, AgentExecutor
 
-# tools=[
-#     fetch_tickets,
-# ]
-# agent = create_tool_calling_agent(
-#     llm=get_gemini_llm(),
-#     tools=tools,
-#     prompt=system_prompt
-# )
-
-# agent_executor = AgentExecutor(
-#     agent=agent,
-#     tools=tools,
-#     verbose=True
-# )
 
 from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -25,7 +7,7 @@ from app.agents.prompts import system_prompt
 from langchain_groq import ChatGroq
 # from app.gemini_llm import get_gemini_llm
 from app.tools.tickets import fetch_tickets,create_ticket
-
+from app.tools.search import searching
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import os
@@ -47,7 +29,7 @@ def get_groq_llm():
     )
 
 
-tools = [fetch_tickets,create_ticket]
+tools = [fetch_tickets,create_ticket,searching]
 
 
 # Create agent (MODERN LANGCHAIN)

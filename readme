@@ -1,0 +1,2 @@
+to run the project
+uvicorn app.main:app --reload --host 192.168.1.70 --port 5001

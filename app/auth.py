@@ -18,11 +18,11 @@ async def login_admin():
             },
             timeout=10
         )
-
+    print(f"Token api calling Response:",response)
     response.raise_for_status()
 
     token = response.json()["access_token"]
-
+    print(f"Token generated variabble storing:",token)
     # Cache token for 1 hour
     redis_client.setex(TOKEN_KEY, 3600, token)
 

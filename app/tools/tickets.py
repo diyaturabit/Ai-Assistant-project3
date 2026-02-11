@@ -33,7 +33,7 @@ async def create_ticket(payload: dict):
     email, title, priority, description(optional)
     """
     token = await get_admin_token()
-    print(f"Create ticket token:",token)
+   
     email = payload.get("email")
     title = payload.get("title")
     priority = payload.get("priority")

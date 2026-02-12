@@ -17,7 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 load_dotenv()
 
 llm = ChatGroq(
-    model_name="qwen/qwen3-32b", 
+    model_name="llama-3.3-70b-versatile", 
     groq_api_key=os.getenv("GROQ_API_KEY"),
     temperature=0.7
 )

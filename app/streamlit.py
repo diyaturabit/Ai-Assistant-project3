@@ -33,7 +33,7 @@ if user_input:
             response = requests.post(
                 API_URL,
                 json={"message": user_input},
-                timeout=30
+                timeout=40
             )
 
         response.raise_for_status()

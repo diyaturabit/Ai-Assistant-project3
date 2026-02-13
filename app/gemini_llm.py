@@ -1,6 +1,6 @@
 # from langchain_google_genai import ChatGoogleGenerativeAI
-# from dotenv import load_dotenv
-# import os
+from dotenv import load_dotenv
+import os
 # load_dotenv()
 # def get_gemini_llm():
 #     return ChatGoogleGenerativeAI(
@@ -9,25 +9,16 @@
 #         temperature=0.2,
 #     )
 
-import os
-from dotenv import load_dotenv
+
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
 load_dotenv()
 
-llm = ChatGroq(
-    model_name="llama-3.3-70b-versatile", 
-    groq_api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.7
-)
+def get_groq_llm():
+    return ChatGroq(
+        model_name="moonshotai/kimi-k2-instruct-0905",  # Your Groq model
+        groq_api_key=os.getenv("GROQ_API_KEY"),
+        temperature=0.2,
+    )
 
-
-messages = [
-    SystemMessage(content="You are a helpful assistant."),
-    HumanMessage(content="I am diyaa")
-]
-
-response = llm.invoke(messages)
-
-print(response.content)

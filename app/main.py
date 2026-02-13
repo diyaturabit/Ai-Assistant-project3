@@ -1,23 +1,17 @@
 
 from fastapi import FastAPI
-
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from app.schemas.chat import ChatRequest
 from app.agents.agents import agent
 import json
 from langchain_core.messages import AIMessage, ToolMessage
+from fastapi.concurrency import run_in_threadpool
 
-load_dotenv()
+# load_dotenv()
 
 app = FastAPI(title="AI CRM Assistant")
 
 
-from langchain_core.messages import AIMessage
-from fastapi.concurrency import run_in_threadpool
-
-
-from langchain_core.messages import AIMessage, ToolMessage
-import json
 
 def parse_agent_result(result: dict):
     """
@@ -62,20 +56,6 @@ def parse_agent_result(result: dict):
 
     return "❌ No response generated."
 
-
-
-
-# @app.post("/chat")
-# async def chat(req: ChatRequest):
-#     result = await run_in_threadpool(
-#         lambda: agent.invoke(
-#             {"messages": [{"role": "user", "content": req.message}]}
-#         )
-#     )
-#     print(f"Result:",result)
-#     reply = parse_agent_result(result)
-#     print(f"Reply:",reply)
-#     return {"reply": reply}
 
 @app.post("/chat")
 async def chat(req: ChatRequest):

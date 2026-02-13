@@ -2,7 +2,7 @@ from langchain_core.tools import tool
 from app.auth import get_admin_token
 import httpx
 import requests
-
+from config import PROJECT2_URL
 
 @tool
 async def fetch_tickets(status: str | None = None, priority: str | None = None):
@@ -34,7 +34,7 @@ async def fetch_tickets(status: str | None = None, priority: str | None = None):
     # async with httpx.AsyncClient(timeout=30) as client:
     async with httpx.AsyncClient(timeout=60) as client:
         response = await client.get(
-            "http://192.168.1.70:8000/sync_tickets/tickets_get",
+            f"{PROJECT2_URL}/sync_tickets/tickets_get",
             params=params
         )
         print(f"Response",response)
@@ -64,7 +64,7 @@ async def fetch_tickets_by_email(email: str):
     headers = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.get(
-            "http://192.168.1.70:8000/sync_tickets/tickets_get",
+            f"{PROJECT2_URL}/sync_tickets/tickets_get",
             params={"email": email},
             headers=headers
         )
@@ -116,7 +116,7 @@ async def create_ticket(payload: dict):
     headers = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
-            "http://192.168.1.70:8000/sync_tickets/create_tickets",
+            f"{PROJECT2_URL}/sync_tickets/create_tickets",
             json=api_payload,
             headers=headers
         )
@@ -179,95 +179,13 @@ async def update_ticket(
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.put(
-            "http://192.168.1.70:8000/sync_tickets/update_ticket",
+            f"{PROJECT2_URL}/sync_tickets/update_ticket",
             json=payload
         )
 
     return response.json()
 
 
-
-from langchain_core.tools import tool
-import httpx
-import json
-from app.auth import get_admin_token
-
-# @tool
-# async def delete_ticket(ticket_id: str):
-#     """
-#     Delete a ticket by ticket_id using the existing CRM API.
-
-#     RULES:
-#     - Requires exact ticket_id.
-#     - Calls backend DELETE API.
-#     - Returns API response as JSON.
-#     - If ticket_id is missing, return error.
-#     """
-
-#     if not ticket_id or not str(ticket_id).strip():
-#         return {"status": 400, "detail": "ticket_id is required"}
-
-#     token = await get_admin_token()
-
-#     headers = {
-#         "Authorization": f"Bearer {token}",
-#         "Content-Type": "application/json"
-#     }
-
-#     async with httpx.AsyncClient(timeout=30) as client:
-#         response = await client.request(
-#             "DELETE",
-#             "http://192.168.1.70:8000/sync_tickets/ticket_delete",
-#             data=json.dumps({"ticket_id": ticket_id}),
-#             headers=headers
-#         )
-
-#     try:
-#         return response.json()
-#     except Exception:
-#         return {
-#             "status": response.status_code,
-#             "detail": "Failed to parse API response"
-#         }
-
-
-
-# @tool
-# async def delete_ticket(ticket_id: str):
-#     """
-#     Delete a ticket using Project 2 API.
-#     Requires ticket_id.
-#     """
-
-#     if not ticket_id or not str(ticket_id).strip():
-#         return {"status": 400, "detail": "ticket_id is required"}
-#     token = await get_admin_token()
-
-#     headers = {
-#         "Authorization": f"Bearer {token}",
-#         "Content-Type": "application/json"
-#     }
-
-#     async with httpx.AsyncClient(timeout=30) as client:
-#         response = await client.request(
-#             "DELETE",
-#             "http://192.168.1.70:8000/sync_tickets/ticket_delete",  # ADD prefix here if exists
-#             json={"ticket_id": int(ticket_id)},
-#             headers=headers
-#         )
-
-#     try:
-#         return response.json()
-#     except Exception:
-#         return {
-#             "status": response.status_code,
-#             "detail": "Invalid response from Project 2"
-#         }
-
-
-
-from langchain.tools import tool
-import httpx
 
 @tool("delete_ticket", description="Delete a ticket by ticket_id")
 async def delete_ticket(ticket_id: str):
@@ -285,38 +203,29 @@ async def delete_ticket(ticket_id: str):
             "error": "ticket_id is required"
         }
 
-    url = "http://192.168.1.70:8000/sync_tickets/ticket_delete"   # change port if needed
+    url = f"{PROJECT2_URL}/sync_tickets/ticket_delete"   # change port if needed
 
     payload = {
         "ticket_id": ticket_id
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.delete(url, json=payload)
-
-        # if response.status_code != 200:
-        #     return {
-        #         "error": f"Failed to delete ticket. Status code: {response.status_code}",
-        #         "details": response.text
-        #     }
-        if response.status_code != 200:
-            print("STATUS:", response.status_code)
-            print("RESPONSE TEXT:", response.text)
-            return {
-                "error": f"Failed to delete ticket. Status code: {response.status_code}",
-                "details": response.text
-            }
-
-        data = response.json()
-
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.delete(url, json=payload)
+    # if response.status_code != 200:
+    #     return {
+    #         "error": f"Failed to delete ticket. Status code: {response.status_code}",
+    #         "details": response.text
+    #     }
+    if response.status_code != 200:
+        print("STATUS:", response.status_code)
+        print("RESPONSE TEXT:", response.text)
         return {
-            "status": data.get("status"),
-            "ticket_id": data.get("ticket_id"),
-            "hubspot_deleted": data.get("hubspot_deleted")
+            "error": f"Failed to delete ticket. Status code: {response.status_code}",
+            "details": response.text
         }
-
-    except Exception as e:
-        return {
-            "error": str(e)
-        }
+    data = response.json()
+    return {
+        "status": data.get("status"),
+        "ticket_id": data.get("ticket_id"),
+        "hubspot_deleted": data.get("hubspot_deleted")
+    }

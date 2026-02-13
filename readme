@@ -6,3 +6,242 @@ find ticket of diyab12@gmail.com
 show me tickets of last week
 update ticket of diyab12@gmail.com
 65 title to okaydkjfdkdj
+find ticket for shrivasini@gmail.com
+view ticket open ticket of last week
+how many tickets arwe there total tickets?
+total customers?
+User input: Hello, how can you help me?
+User input: show all tickets
+User input: filter all high priority tickets
+User input: show all the tickets from 30 Jan 2026 to today
+
+
+
+
+🤖 AI CRM Assistant – Project 3
+
+An intelligent AI-powered CRM Assistant that integrates with internal CRM APIs to manage tickets, customers, and conversations using LLM-based tool calling.
+
+This project combines:
+
+🧠 LLM-based AI Agent
+⚡ FastAPI Backend
+🎨 Streamlit Frontend
+🔗 CRM API Integration
+🕒Timezone-aware Date Filtering
+
+
+🚀 Features Implemented
+
+✅ 1. AI Agent with Tool Calling
+
+    Uses LLM to interpret user queries
+    Dynamically calls backend tools like:
+    fetch_tickets
+    Customer sync APIs
+    Structured system prompt with strict rules
+    Calendar-aware ticket filtering
+
+✅ 2. Ticket Management
+
+Fetch tickets from CRM API
+
+Limit response to first 15 tickets
+Return summary:
+Total tickets
+Open tickets
+Closed tickets
+Displayed tickets
+Strict calendar filtering:
+
+Today
+
+Yesterday
+
+This week
+
+This month
+
+Timezone-aware date comparison
+
+✅ 3. Date Handling (Production-Safe)
+
+Converts created_at string format:
+
+"Tue, 10 Feb 2026"
+
+into Python datetime object
+
+Uses zoneinfo for timezone awareness
+
+Avoids string-based date comparison
+
+Injects dynamic current date into system prompt
+
+
+✅ 4. Streamlit Frontend
+
+Chat-style UI using st.chat_message
+
+Session state handling
+
+Spinner during API calls
+
+Clean assistant interface
+
+Persistent conversation support
+
+"New Chat" capability (if enabled)
+
+✅ 5. Authentication Flow
+
+Backend login API integration
+
+Token-based request handling
+
+Secure API communication
+
+✅ 6. CRM Sync Integration
+
+Create customer
+
+Sync customer with CRM (HubSpot-style API)
+
+Handle:
+
+409 conflict (already exists)
+
+422 validation errors
+
+Async HTTP calls using httpx
+
+🏗 Architecture
+Frontend (Streamlit)
+        ↓
+FastAPI Backend (AI Agent + Tools)
+        ↓
+CRM APIs / Database
+        ↓
+PostgreSQL / MySQL (Conversations + Messages)
+
+🛠 Tech Stack
+Layer	Technology
+Frontend	Streamlit
+Backend	FastAPI
+AI Layer	LLM Agent (Tool Calling)
+Database	PostgreSQL / MySQL
+HTTP Client	httpx
+Date Handling	datetime + zoneinfo
+ORM	SQLAlchemy
+🧠 AI Behavior Rules
+
+The assistant:
+
+MUST call fetch_tickets tool before answering ticket queries
+
+MUST parse created_at into datetime
+
+MUST use timezone-aware current date
+
+MUST apply strict calendar filtering
+
+MUST limit ticket output to first 15 results
+
+MUST return structured summaries
+
+📂 Project Structure (Example)
+ai-assistant/
+│
+├── app/
+│   ├── main.py
+│   ├── agents.py
+│   ├── models.py
+│   ├── database.py
+│   └── auth.py
+│   └── streamlit.py
+│   └── gemini_llm.py
+│   └── streamlit.py
+├── tools
+│   ├── customers.py
+│   ├── search.py
+│   └── tickets.py
+├── schemas/
+│   ├── __int__.py
+│   ├── chat.py
+│   └── ticket.py
+├── memory/
+│   ├── __int__.py
+│   ├── redis_memory.py
+│   └── ticket.py
+├── agents/
+│   ├── __int__.py
+│   ├── agents.py
+│   └── prompt.py
+├── requirements.txt
+└── README.md
+└── config.py
+
+⚙️ Installation
+1️⃣ Clone the Repository
+git clone <repo-url>
+cd project3-ai-assistant
+
+2️⃣ Create Virtual Environment
+python -m venv venv311
+source venv311/bin/activate
+
+
+Windows:
+
+311venv\Scripts\activate
+
+3️⃣ Install Dependencies
+pip install -r requirements.txt
+
+4️⃣ Run Backend
+uvicorn main:app --reload
+uvicorn app.main:app --reload --host 192.168.1.70 --port 5001
+
+5️⃣ Run Streamlit Frontend
+streamlit run app/streamlit.py
+
+🔐 Environment Variables
+
+Create .env file:
+
+DATABASE_URL=
+CRM_API_URL=
+AUTH_SECRET=
+LLM_API_KEY=
+TIMEZONE=Asia/Kolkata
+
+📈 Production Improvements (Future Scope)
+
+Redis caching
+Rate limiting
+Conversation pagination
+Auto-generated conversation titles
+Background task queue
+Multi-user role system
+Deployment via Docker
+
+🎯 Learning Outcomes
+
+This project demonstrates:
+
+Building AI agent with tool calling
+
+Integrating LLM with real backend logic
+
+Handling async CRM APIs
+
+Implementing timezone-safe date filtering
+
+Designing ChatGPT-style memory architecture
+
+Creating full-stack AI application
+
+👩‍💻 Author
+
+Diya Bosamiya
+AI CRM Assistant – Project 3

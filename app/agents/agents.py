@@ -6,7 +6,7 @@ import os
 from app.agents.prompts import system_prompt
 from langchain_groq import ChatGroq
 # from app.gemini_llm import get_gemini_llm
-from app.tools.tickets import fetch_tickets,create_ticket,fetch_tickets_by_email,delete_ticket
+from app.tools.tickets import fetch_tickets,create_ticket,fetch_tickets_by_email,delete_ticket,update_ticket
 from app.tools.customers import fetch_customers,create_customers,delete_customer
 from app.tools.search import searching
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -37,7 +37,8 @@ tools = [fetch_tickets,
          create_customers,
          delete_customer,
          fetch_tickets_by_email,
-         delete_ticket
+         delete_ticket,
+         update_ticket
         ]
 
 

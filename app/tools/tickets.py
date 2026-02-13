@@ -128,67 +128,64 @@ async def create_ticket(payload: dict):
         f"HubSpot ID: {data.get('hubspot_ticket_id')}"
     )
 
+from typing import Optional
+from langchain.tools import tool
 
-@tool
-async def update_ticket_by_email(
-    email: str,
-    title_contains: str = None,
-    new_title: str = None,
-    new_description: str = None,
-    new_priority: str = None,
-    new_status: str = None
+@tool("update_ticket", description="Update a ticket by ticket_id")
+async def update_ticket(
+    ticket_id: int,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    priority: Optional[str] = None,
+    status: Optional[str] = None,
 ):
     """
-    Update ticket fields for a specific customer email.
+    Update an existing ticket using its ticket ID.
+
+    PARAMETERS:
+    - ticket_id (int): The unique ID of the ticket to update. (Required)
+    - title (str, optional): New title for the ticket.
+    - description (str, optional): New description for the ticket.
+    - priority (str, optional): New priority level (e.g., Low, Medium, High).
+    - status (str, optional): New status (e.g., Open, In Progress, Closed).
 
     RULES:
-    - Fetch tickets for the given email.
-    - Optionally filter ticket by `title_contains`.
-    - Update the first matching ticket.
-    - Only update fields provided (others ignored).
-    - Fields that can be updated: title, description, priority, status.
-    - Returns confirmation with:
-        - Ticket ID
-        - Updated fields
-    - If no tickets match, return:
-        "No tickets matched the criteria for email <email>."
+    - ticket_id is required.
+    - Only update the fields that are explicitly provided.
+    - Do not send fields that are None.
+    - At least one field must be provided for update.
+    - This tool updates a single ticket only.
+
+    RETURNS:
+    - JSON response from the ticket update API.
+    - Should confirm:
+        - ticket_id
+        - updated fields
+        - update status
+
+    USE CASE:
+    Call this tool only after the user has selected a specific ticket ID
+    and clearly mentioned which fields to update.
     """
-    token = await get_admin_token()
-    headers = {"Authorization": f"Bearer {token}"}
-
-    tickets_resp = await fetch_tickets_by_email(email)
-    if isinstance(tickets_resp, str):
-        return tickets_resp  # no tickets found
-
-    if title_contains:
-        tickets_resp = [t for t in tickets_resp if title_contains.lower() in t["title"].lower()]
-
-    if not tickets_resp:
-        return f"No tickets matched the criteria for email {email}"
-
-    ticket_to_update = tickets_resp[0]
-    ticket_id = ticket_to_update["id"]
-
     payload = {
         "ticket_id": ticket_id,
-        "title": new_title,
-        "description": new_description,
-        "priority": new_priority,
-        "status": new_status
+        "title": title,
+        "description": description,
+        "priority": priority,
+        "status": status,
     }
+
     payload = {k: v for k, v in payload.items() if v is not None}
 
-    if not payload:
-        return "❌ No fields provided to update."
-
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "http://192.168.1.70:8000/sync_tickets/create_tickets",
-            json=payload,
-            headers=headers
+        response = await client.put(
+            "http://192.168.1.70:8000/sync_tickets/update_ticket",
+            json=payload
         )
-    response.raise_for_status()
+
     return response.json()
+
+
 
 from langchain_core.tools import tool
 import httpx
@@ -235,34 +232,91 @@ from app.auth import get_admin_token
 
 
 
-@tool
+# @tool
+# async def delete_ticket(ticket_id: str):
+#     """
+#     Delete a ticket using Project 2 API.
+#     Requires ticket_id.
+#     """
+
+#     if not ticket_id or not str(ticket_id).strip():
+#         return {"status": 400, "detail": "ticket_id is required"}
+#     token = await get_admin_token()
+
+#     headers = {
+#         "Authorization": f"Bearer {token}",
+#         "Content-Type": "application/json"
+#     }
+
+#     async with httpx.AsyncClient(timeout=30) as client:
+#         response = await client.request(
+#             "DELETE",
+#             "http://192.168.1.70:8000/sync_tickets/ticket_delete",  # ADD prefix here if exists
+#             json={"ticket_id": int(ticket_id)},
+#             headers=headers
+#         )
+
+#     try:
+#         return response.json()
+#     except Exception:
+#         return {
+#             "status": response.status_code,
+#             "detail": "Invalid response from Project 2"
+#         }
+
+
+
+from langchain.tools import tool
+import httpx
+
+@tool("delete_ticket", description="Delete a ticket by ticket_id")
 async def delete_ticket(ticket_id: str):
     """
-    Delete a ticket using Project 2 API.
-    Requires ticket_id.
+    Deletes a ticket from the system.
+
+    Rules:
+    - ticket_id is required
+    - Returns deletion status
+    - Indicates if HubSpot ticket was deleted
     """
 
-    if not ticket_id or not str(ticket_id).strip():
-        return {"status": 400, "detail": "ticket_id is required"}
-    token = await get_admin_token()
+    if not ticket_id:
+        return {
+            "error": "ticket_id is required"
+        }
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
+    url = "http://192.168.1.70:8000/sync_tickets/ticket_delete"   # change port if needed
+
+    payload = {
+        "ticket_id": ticket_id
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.request(
-            "DELETE",
-            "http://192.168.1.70:8000/sync_tickets/ticket_delete",  # ADD prefix here if exists
-            json={"ticket_id": int(ticket_id)},
-            headers=headers
-        )
-
     try:
-        return response.json()
-    except Exception:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(url, json=payload)
+
+        # if response.status_code != 200:
+        #     return {
+        #         "error": f"Failed to delete ticket. Status code: {response.status_code}",
+        #         "details": response.text
+        #     }
+        if response.status_code != 200:
+            print("STATUS:", response.status_code)
+            print("RESPONSE TEXT:", response.text)
+            return {
+                "error": f"Failed to delete ticket. Status code: {response.status_code}",
+                "details": response.text
+            }
+
+        data = response.json()
+
         return {
-            "status": response.status_code,
-            "detail": "Invalid response from Project 2"
+            "status": data.get("status"),
+            "ticket_id": data.get("ticket_id"),
+            "hubspot_deleted": data.get("hubspot_deleted")
+        }
+
+    except Exception as e:
+        return {
+            "error": str(e)
         }

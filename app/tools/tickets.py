@@ -21,8 +21,12 @@ async def fetch_tickets(status: str | None = None, priority: str | None = None):
     - Supports optional filters:
         - status: "open" or "closed"
         - priority: "Low", "Medium", "High"
-    - Returns a formatted list of tickets (JSON, table, or summary depending on request).
+        - time filters (optional): today, yesterday, this week, last week, last month, between <date1> and <date2>
+    - Returns a formatted list of tickets based on requested output format:
+        - JSON, table, or human-readable summary
+    - The LLM should call this tool **only when a ticket view or search query is detected**.
     """
+
     print("Fetching ticket")
     # token = await get_admin_token()
     # headers = {"Authorization": f"Bearer {token}"}
@@ -54,12 +58,14 @@ async def fetch_tickets_by_email(email: str):
         - Number of open tickets
         - Number of closed tickets
         - Number displayed
-    - If more than 15 tickets exist, include note:
+    - If more than 15 tickets exist, add:
         "Showing first 15 tickets. There are <X> more tickets available."
-    - If no tickets are found, return:
+    - If no tickets are found, return a clear message:
         "No tickets found for this customer."
-    - Supports optional time filters (today, this week, last week, etc.)
+    - Supports optional time filters (today, yesterday, this week, last week, last month, between <date1> and <date2>)
+    - LLM should call this tool **only when a user requests tickets for a specific email**.
     """
+
     token = await get_admin_token()
     headers = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(timeout=30) as client:
@@ -87,13 +93,16 @@ async def create_ticket(payload: dict):
     - description: optional
 
     RULES:
-    - Ask for missing required fields one by one.
+    - Ask for missing required fields one by one (dynamic interaction).
     - Normalize priority internally (capitalize first letter).
     - Only call tool if all required fields are present.
     - Returns a clear confirmation including:
         - Internal DB ticket ID
         - HubSpot ticket ID
+    - LLM should call this tool **only when creating a new ticket**.
+    - Supports user-requested output format (JSON, table, human-readable summary).
     """
+
     token = await get_admin_token()
     email = payload.get("email")
     title = payload.get("title")
@@ -143,30 +152,22 @@ async def update_ticket(
     Update an existing ticket using its ticket ID.
 
     PARAMETERS:
-    - ticket_id (int): The unique ID of the ticket to update. (Required)
+    - ticket_id (int): Required. The unique ID of the ticket to update.
     - title (str, optional): New title for the ticket.
     - description (str, optional): New description for the ticket.
-    - priority (str, optional): New priority level (e.g., Low, Medium, High).
-    - status (str, optional): New status (e.g., Open, In Progress, Closed).
+    - priority (str, optional): New priority level (Low, Medium, High).
+    - status (str, optional): New status (Open, In Progress, Closed).
 
     RULES:
-    - ticket_id is required.
-    - Only update the fields that are explicitly provided.
-    - Do not send fields that are None.
-    - At least one field must be provided for update.
-    - This tool updates a single ticket only.
-
-    RETURNS:
-    - JSON response from the ticket update API.
-    - Should confirm:
+    - Only update fields that are explicitly provided (ignore None values).
+    - At least one field must be provided.
+    - Returns confirmation with:
         - ticket_id
         - updated fields
         - update status
-
-    USE CASE:
-    Call this tool only after the user has selected a specific ticket ID
-    and clearly mentioned which fields to update.
+    - LLM should call this tool **only after the user has selected a ticket ID and specified the fields to update**.
     """
+
     payload = {
         "ticket_id": ticket_id,
         "title": title,
@@ -190,12 +191,39 @@ async def update_ticket(
 @tool("delete_ticket", description="Delete a ticket by ticket_id")
 async def delete_ticket(ticket_id: str):
     """
-    Deletes a ticket from the system.
+    Tool: delete_ticket
+    Purpose:
+    - Delete a ticket from the CRM system using its `ticket_id`.
+    - Deletes the corresponding HubSpot ticket if it exists.
+    - Returns a structured status message including:
+        • ticket_id
+        • deletion status
+        • whether HubSpot ticket was deleted
+    
+    Input:
+    - ticket_id (string) → required. The unique ID of the ticket to delete.
+    
+    Output:
+    - JSON object containing:
+        • status → deletion status ("success" or "error")
+        • ticket_id → the ticket that was deleted
+        • hubspot_deleted → whether HubSpot ticket was removed (true/false)
+    - If `ticket_id` is missing or deletion fails:
+        • Return a clear error message with details
+    
+    Rules for LLM:
+    - Only call this tool when the user explicitly asks to delete or remove a ticket, e.g.:
+        • "delete ticket 123"
+        • "remove ticket 456"
+        • "delete ticket by id 789"
+    - Extract numeric `ticket_id` from the user query.
+    - If `ticket_id` is not provided in the query, ask the user: "Please provide the ticket ID."
+    - Never simulate deletion results — always use the tool’s actual response.
+    - Respect output format requested by the user:
+        • Human-readable → "✅ Ticket deleted successfully | Ticket ID: X | HubSpot Deleted: True/False"
+        • JSON → structured JSON with status, ticket_id, and hubspot_deleted fields.
+    - Do NOT return raw API responses directly.
 
-    Rules:
-    - ticket_id is required
-    - Returns deletion status
-    - Indicates if HubSpot ticket was deleted
     """
 
     if not ticket_id:

@@ -40,6 +40,7 @@ if user_input:
         data = response.json()
 
         bot_reply = data.get("reply", "❌ No response")
+        print(f"Bot Reply:",bot_reply)
 
     except Exception as e:
         bot_reply = f"❌ Error calling API:\n\n{e}"

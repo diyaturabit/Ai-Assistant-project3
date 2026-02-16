@@ -6,8 +6,23 @@ from config import PROJECT2_URL
 @tool
 async def fetch_customers()->dict:
     """
-    Fetch all customers from the CRM backend.
-    Returns a JSON object containing a list of customers.
+    Tool: fetch_customers
+    Purpose:
+    - Retrieve all customers from the internal CRM.
+    - Format results in a human-readable table or JSON depending on user request.
+    - Limit results to the first 15 customers. If more exist, include:
+      "Showing first 15 results. There are <N> more available."
+    - Do NOT return raw API output.
+    - Always parse customer fields: ID, Name, Email, Company, Age.
+    - Respect user-specified output formats:
+      • Table → columns: ID | Name | Email | Company | Age
+      • JSON → valid JSON object containing customers list
+    Rules for LLM:
+    - Call this tool when the user asks for:
+      • "view customers", "list customers", "show customers"
+    - Never call if user asks unrelated questions.
+    - Return a clear summary if no customers exist: "No customers found."
+
     """
     # user_email = get_current_user_email()  
     token = await get_admin_token()
@@ -28,16 +43,27 @@ import httpx
 @tool
 async def create_customers(payload: dict) -> str:
     """
-    Create a new customer and sync to HubSpot.
+    Tool: create_customers
+    Purpose:
+    - Create a new customer and optionally sync it with HubSpot.
+    - Requires the following fields:
+      • name (string) — customer full name
+      • email (string) — customer email address
+      • company (string) — company name
+    - Optional:
+      • age (integer)
+    - Returns a confirmation message with internal customer ID and HubSpot contact ID.
+    Rules for LLM:
+    - Only call this tool when **all required fields are provided**.
+    - If fields are missing, ask the user **one at a time** for name, email, or company.
+    - Normalize priority of fields internally if needed.
+    - Respect output format rules:
+      • Human-readable → "✅ Customer created successfully\nCustomer ID: X\nHubSpot Contact ID: Y"
+      • JSON → return structured JSON if user requests JSON output.
+    - Do not simulate creation — only respond with the tool’s actual result.
+    - Use this tool when user asks:
+      • "add customer", "create customer", "new customer"
 
-    Required fields:
-    - name
-    - email
-    - companyset_customer_mapping
-    Optional:
-    - age
-
-    Returns confirmation message with internal and HubSpot IDs.
     """
     
     token = await get_admin_token()
@@ -82,13 +108,25 @@ async def create_customers(payload: dict) -> str:
 @tool("delete_customer", description="Delete a customer using their customer_id")
 async def delete_customer(customer_id: int):
     """
-    Deletes a customer by customer_id.
+    Tool: delete_customer
+    Purpose:
+    - Delete a customer by `customer_id` from the internal CRM.
+    - Deletes associated HubSpot contact if exists.
+    - Clears cache after deletion.
+    - Returns deletion confirmation, including email and HubSpot deletion status.
+    Rules for LLM:
+    - Only call this tool when the user **explicitly asks to delete a customer**, e.g.,
+      • "delete customer 123"
+      • "remove customer 456"
+      • "delete customer by id 789"
+    - Extract numeric `customer_id` from the user query.
+    - If `customer_id` is missing, ask the user: "Please provide the customer ID."
+    - Respect output format rules:
+      • Human-readable → "✅ Customer deleted successfully\nEmail: X\nHubSpot Deleted: Y"
+      • JSON → structured JSON with deletion info if user requests JSON output.
+    - Never assume deletion — always rely on the tool output.
+    - Do NOT simulate results or generate your own confirmation messages.
 
-    - Calls internal CRM API.
-    - Deletes customer from database.
-    - Deletes HubSpot contact if exists.
-    - Clears Redis cache.
-    - Returns deletion status.
     """
 
     print("Delete customer tool calling")

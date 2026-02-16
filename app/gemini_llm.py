@@ -17,8 +17,8 @@ load_dotenv()
 
 def get_groq_llm():
     return ChatGroq(
-        model_name="moonshotai/kimi-k2-instruct-0905",  # Your Groq model
+        model_name="qwen/qwen3-32b",  # Your Groq model
         groq_api_key=os.getenv("GROQ_API_KEY"),
-        temperature=0.2,
+        temperature=0.7,
     )
 

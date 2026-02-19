@@ -1,6 +1,6 @@
 from langchain_core.tools import tool
 from app.auth import get_admin_token
-
+from app.exception_handling import handle_exception
 import httpx
 from config import PROJECT1_URL
 
@@ -38,32 +38,40 @@ async def searching(query: str):
     - Ask for clarification if the query is empty or ambiguous.
 
     """
-    if not query.strip():
-        return {"error": "Search query is required"}
+    try:
+        if not query.strip():
+            return {"error": "Search query is required"}
 
-    token = await get_admin_token()
-    print(f"Searching token :",token)
-    headers = {"Authorization": f"Bearer {token}"}
+        token = await get_admin_token()
+        print(f"Searching token :",token)
+        headers = {"Authorization": f"Bearer {token}"}
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            f"{PROJECT1_URL}/search/search",
-            params={"q": query},
-            headers=headers
-        )
-        print(f"Response:",response)
-        response.raise_for_status()
-        data = response.json()
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{PROJECT1_URL}/search/search",
+                params={"q": query},
+                headers=headers
+            )
+            print(f"Response:",response)
+            response.raise_for_status()
+            data = response.json()
 
-    customers = data.get("customers", [])
-    tickets = data.get("tickets", [])
+        customers = data.get("customers", [])
+        tickets = data.get("tickets", [])
 
-    result = {
-        "customers": customers,
-        "tickets": tickets
-    }
+        result = {
+            "customers": customers,
+            "tickets": tickets
+        }
 
-    if not customers and not tickets:
-        result["message"] = f"No customers or tickets found for '{query}'"
+        if not customers and not tickets:
+            result["message"] = f"No customers or tickets found for '{query}'"
 
-    return result
+        return result
+    
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("Searching execution completed.")
+

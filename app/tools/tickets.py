@@ -3,7 +3,7 @@ from app.auth import get_admin_token
 import httpx
 import requests
 from config import PROJECT2_URL
-
+from app.exception_handling import handle_exception
 @tool
 async def fetch_tickets(status: str | None = None, priority: str | None = None):
     """
@@ -11,6 +11,14 @@ async def fetch_tickets(status: str | None = None, priority: str | None = None):
 
     RULES:
     - Fetch only the first 15 tickets to prevent large responses.
+    ALWAYS return tickets with ONLY the following fields:
+    - id
+    - title
+    - customer_email
+    - status
+    - priority
+    - created_at
+
     - Include summary:
         - Total tickets matching the query
         - Number of open tickets
@@ -19,7 +27,7 @@ async def fetch_tickets(status: str | None = None, priority: str | None = None):
     - If more than 15 tickets exist, include note:
         "Showing first 15 tickets. There are <X> more tickets available."
     - Supports optional filters:
-        - status: "open" or "closed"
+        - status: "open" ,"Inprogress" "closed"
         - priority: "Low", "Medium", "High"
         - time filters (optional): today, yesterday, this week, last week, last month, between <date1> and <date2>
     - Returns a formatted list of tickets based on requested output format:
@@ -27,23 +35,29 @@ async def fetch_tickets(status: str | None = None, priority: str | None = None):
     - The LLM should call this tool **only when a ticket view or search query is detected**.
     """
 
-    print("Fetching ticket")
-    # token = await get_admin_token()
-    # headers = {"Authorization": f"Bearer {token}"}
-    params = {}
-    if status:
-        params["status"] = status
-    if priority:
-        params["priority"] = priority
-    # async with httpx.AsyncClient(timeout=30) as client:
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.get(
-            f"{PROJECT2_URL}/sync_tickets/tickets_get",
-            params=params
-        )
-        print(f"Response",response)
-    response.raise_for_status()
-    return response.json()
+    try:
+        print("Fetching tickets...")
+
+        params = {}
+        if status:
+            params["status"] = status
+        if priority:
+            params["priority"] = priority
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.get(
+                f"{PROJECT2_URL}/sync_tickets/tickets_get",
+                params=params
+            )
+            response.raise_for_status()
+
+        return response.json()
+
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("fetch_tickets execution completed.")
 
 
 @tool
@@ -66,19 +80,30 @@ async def fetch_tickets_by_email(email: str):
     - LLM should call this tool **only when a user requests tickets for a specific email**.
     """
 
-    token = await get_admin_token()
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            f"{PROJECT2_URL}/sync_tickets/tickets_get",
-            params={"email": email},
-            headers=headers
-        )
-    response.raise_for_status()
-    tickets = response.json().get("tickets", [])
-    if not tickets:
-        return f"No tickets found for email {email}"
-    return tickets
+    try:
+        token = await get_admin_token()
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{PROJECT2_URL}/sync_tickets/tickets_get",
+                params={"email": email},
+                headers=headers
+            )
+            response.raise_for_status()
+
+        tickets = response.json().get("tickets", [])
+
+        if not tickets:
+            return f"No tickets found for email {email}"
+
+        return tickets
+
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("fetch_tickets_by_email execution completed.")
 
 
 @tool
@@ -103,39 +128,52 @@ async def create_ticket(payload: dict):
     - Supports user-requested output format (JSON, table, human-readable summary).
     """
 
-    token = await get_admin_token()
-    email = payload.get("email")
-    title = payload.get("title")
-    priority = payload.get("priority")
-    description = payload.get("description", "")
+    try:
+        token = await get_admin_token()
 
-    if not email or not title:
-        return "❌ email and title are required"
-    if priority.capitalize() not in {"Low", "Medium", "High"}:
-        return "❌ priority must be Low, Medium, or High"
+        email = payload.get("email")
+        title = payload.get("title")
+        priority = payload.get("priority")
+        description = payload.get("description", "")
 
-    api_payload = {
-        "payload": {
-            "email": email,
-            "title": title,
-            "priority": priority.capitalize(),
-            "description": description
+        if not email or not title:
+            return "❌ email and title are required"
+
+        if priority.capitalize() not in {"Low", "Medium", "High"}:
+            return "❌ priority must be Low, Medium, or High"
+
+        api_payload = {
+            "payload": {
+                "email": email,
+                "title": title,
+                "priority": priority.capitalize(),
+                "description": description
+            }
         }
-    }
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            f"{PROJECT2_URL}/sync_tickets/create_tickets",
-            json=api_payload,
-            headers=headers
+
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"{PROJECT2_URL}/sync_tickets/create_tickets",
+                json=api_payload,
+                headers=headers
+            )
+            response.raise_for_status()
+
+        data = response.json()
+
+        return (
+            "✅ Ticket created successfully\n"
+            f"Internal DB ID: {data.get('internal_ticket_db_id')}\n"
+            f"HubSpot ID: {data.get('hubspot_ticket_id')}"
         )
-    response.raise_for_status()
-    data = response.json()
-    return (
-        "✅ Ticket created successfully\n"
-        f"Internal DB ID: {data.get('internal_ticket_db_id')}\n"
-        f"HubSpot ID: {data.get('hubspot_ticket_id')}"
-    )
+
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("create_ticket execution completed.")
 
 from typing import Optional
 from langchain.tools import tool
@@ -168,24 +206,34 @@ async def update_ticket(
     - LLM should call this tool **only after the user has selected a ticket ID and specified the fields to update**.
     """
 
-    payload = {
-        "ticket_id": ticket_id,
-        "title": title,
-        "description": description,
-        "priority": priority,
-        "status": status,
-    }
+    try:
+        payload = {
+            "ticket_id": ticket_id,
+            "title": title,
+            "description": description,
+            "priority": priority,
+            "status": status,
+        }
 
-    payload = {k: v for k, v in payload.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None}
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.put(
-            f"{PROJECT2_URL}/sync_tickets/update_ticket",
-            json=payload
-        )
+        if len(payload) <= 1:
+            return {"error": "At least one field must be provided for update."}
 
-    return response.json()
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.put(
+                f"{PROJECT2_URL}/sync_tickets/update_ticket",
+                json=payload
+            )
+            response.raise_for_status()
 
+        return response.json()
+
+    except Exception as e:
+        return handle_exception(e)
+    
+    finally:
+        print("update_ticket execution completed.")
 
 
 @tool("delete_ticket", description="Delete a ticket by ticket_id")
@@ -225,35 +273,34 @@ async def delete_ticket(ticket_id: str):
     - Do NOT return raw API responses directly.
 
     """
+    try:
+        if not ticket_id:
+            return {"error": "ticket_id is required"}
 
-    if not ticket_id:
+        token = await get_admin_token()
+        headers = {"Authorization": f"Bearer {token}"}
+
+        url = f"{PROJECT2_URL}/sync_tickets/ticket_delete"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.request(
+                "DELETE",
+                url,
+                json={"ticket_id": ticket_id},
+                headers=headers
+            )
+            response.raise_for_status()
+
+        data = response.json()
+
         return {
-            "error": "ticket_id is required"
+            "status": data.get("status"),
+            "ticket_id": data.get("ticket_id"),
+            "hubspot_deleted": data.get("hubspot_deleted")
         }
 
-    url = f"{PROJECT2_URL}/sync_tickets/ticket_delete"   # change port if needed
+    except Exception as e:
+        return handle_exception(e)
 
-    payload = {
-        "ticket_id": ticket_id
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.delete(url, json=payload)
-    # if response.status_code != 200:
-    #     return {
-    #         "error": f"Failed to delete ticket. Status code: {response.status_code}",
-    #         "details": response.text
-    #     }
-    if response.status_code != 200:
-        print("STATUS:", response.status_code)
-        print("RESPONSE TEXT:", response.text)
-        return {
-            "error": f"Failed to delete ticket. Status code: {response.status_code}",
-            "details": response.text
-        }
-    data = response.json()
-    return {
-        "status": data.get("status"),
-        "ticket_id": data.get("ticket_id"),
-        "hubspot_deleted": data.get("hubspot_deleted")
-    }
+    finally:
+        print("delete_ticket execution completed.")

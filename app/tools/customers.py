@@ -3,6 +3,8 @@ from app.auth import get_admin_token
 import requests
 import httpx
 from config import PROJECT2_URL
+from app.exception_handling import handle_exception
+
 @tool
 async def fetch_customers()->dict:
     """
@@ -24,18 +26,26 @@ async def fetch_customers()->dict:
     - Return a clear summary if no customers exist: "No customers found."
 
     """
-    # user_email = get_current_user_email()  
-    token = await get_admin_token()
-    print("Fetching customers")
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            f"{PROJECT2_URL}/sync_customers/get_customers",
-            headers=headers,
-    )
-    print(f"response for viewing customers:",response)
-    response.raise_for_status()
-    return response.json()
+    try:
+        # user_email = get_current_user_email()  
+        token = await get_admin_token()
+        print("Fetching customers")
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{PROJECT2_URL}/sync_customers/get_customers",
+                headers=headers,
+        )
+        print(f"response for viewing customers:",response)
+        response.raise_for_status()
+        return response.json()
+    
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("Fetching Customer execution completed.")
+
 
 from langchain.tools import tool
 import httpx
@@ -65,43 +75,49 @@ async def create_customers(payload: dict) -> str:
       • "add customer", "create customer", "new customer"
 
     """
-    
-    token = await get_admin_token()
+    try:
+        token = await get_admin_token()
 
-    name = payload.get("name")
-    email = payload.get("email")
-    company = payload.get("company")
-    age = payload.get("age")
+        name = payload.get("name")
+        email = payload.get("email")
+        company = payload.get("company")
+        age = payload.get("age")
 
-    if not email or not name or not company:
-        return "❌ name, email, and company are required."
+        if not email or not name or not company:
+            return "❌ name, email, and company are required."
 
-    api_payload = {
-        "name": name,
-        "email": email,
-        "company": company,
-        "age": age
-    }
+        api_payload = {
+            "name": name,
+            "email": email,
+            "company": company,
+            "age": age
+        }
 
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            f"{PROJECT2_URL}/sync_customers/crea_customers",
-            json=api_payload,
-            headers=headers,
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"{PROJECT2_URL}/sync_customers/crea_customers",
+                json=api_payload,
+                headers=headers,
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        return (
+            "✅ Customer created successfully\n"
+            f"Customer ID: {data.get('customer_id')}\n"
+            f"HubSpot Contact ID: {data.get('hubspot_contact_id')}"
         )
+    
+    except Exception as e:
+        return handle_exception(e)
 
-    response.raise_for_status()
-    data = response.json()
-
-    return (
-        "✅ Customer created successfully\n"
-        f"Customer ID: {data.get('customer_id')}\n"
-        f"HubSpot Contact ID: {data.get('hubspot_contact_id')}"
-    )
+    finally:
+        print("creation of customer execution completed.")
 
 
 
@@ -128,30 +144,35 @@ async def delete_customer(customer_id: int):
     - Do NOT simulate results or generate your own confirmation messages.
 
     """
-
-    print("Delete customer tool calling")
-    token=await get_admin_token()
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.request(
-            "DELETE",
-            f"{PROJECT2_URL}/sync_customers/delete_customer", 
-            json={"customer_id": customer_id},
-            headers=headers
-        )
-    # Handle not found
-    if response.status_code == 404:
-        return {
-            "status": "Found",
-            "message": f"Customer {customer_id} found."
+    try:
+        print("Delete customer tool calling")
+        token=await get_admin_token()
+        headers = {
+            "Authorization": f"Bearer {token}"
         }
-    response.raise_for_status()
-    result= response.json()
-    return (
-        "✅ Customer deleted successfully\n"
-        f"Email: {result.get('email')}\n"
-        f"HubSpot Deleted: {result.get('hubspot_deleted')}"
-    )
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.request(
+                "DELETE",
+                f"{PROJECT2_URL}/sync_customers/delete_customer", 
+                json={"customer_id": customer_id},
+                headers=headers
+            )
+        # Handle not found
+        if response.status_code == 404:
+            return {
+                "status": "Found",
+                "message": f"Customer {customer_id} found."
+            }
+        response.raise_for_status()
+        result= response.json()
+        return (
+            "✅ Customer deleted successfully\n"
+            f"Email: {result.get('email')}\n"
+            f"HubSpot Deleted: {result.get('hubspot_deleted')}"
+        )
+    except Exception as e:
+        return handle_exception(e)
+
+    finally:
+        print("delete customer execution completed.")
 
